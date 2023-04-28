@@ -25,8 +25,8 @@ print_help() {
     printf "\n%b<time> format%b is either n/o seconds or %bXhXmX%b\n" "${GREEN}" "${NC}" "${YELLOW}" "${NC}"
     printf "where X is a number, h suffixes hours, m suffixes minutes and whatever comes next are added seconds\n"
     printf "Examples:\n"
-    printf "120 = 120 seconds"
-    printf "2m = 2 minutes"
+    printf "120 = 120 seconds\n"
+    printf "2m = 2 minutes\n"
     printf "5m2s = 5 minutes and 2 seconds\n"
     printf "1h2 = 1 hour and 2 seconds\n"
     printf "\n%bInterrupt keys%b when the timer is running:\n" "${GREEN}" "${NC}"
@@ -40,7 +40,7 @@ print_help() {
     printf "If a file named \`general.conf\` is found withing the directory:\n"
     printf "All lines are paths to .ogg sound files\n"
     printf "1st line: A sound that'll play in the last 20s\n"
-    printf "1st line: A sound that'll play when the timer expires\n"
+    printf "2nd line: A sound that'll play when the timer expires\n"
 }
 
 # Background thread
