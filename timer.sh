@@ -140,6 +140,7 @@ esac
 
 # Main logic
 startTime=$(date +%s)
+suspendTime=$(date +%s)
 time_int &
 ti_pid=$!
 
@@ -152,20 +153,30 @@ while $running; do
     printf "\b \b"
     [[ $lastKey != 's' ]] && printf "\r"
     if [[ " ${RESTART_ARR[*]} " =~ " ${key} " ]]; then
-        [[ $ti_pid != "" ]] && kill $ti_pid
+        [[ $ti_pid != "" ]] && kill -TSTP $ti_pid
         ti_pid=""
         startTime=$(date +%s)
         time_int &
         ti_pid=$!
     elif [[ $key == 's' ]]; then
-        [[ $lastKey == 's' ]] && continue
-        [[ $ti_pid != "" ]] && kill $ti_pid
+        if [[ $lastKey == 's' ]]; then
+            # handling resume
+            timeNow=$(date +%s)
+            startTime=$(( timeNow - suspendTime ))
+            time_int &
+            ti_pid=$!
+            lastKey=''
+            continue
+        fi
+        [[ $ti_pid != "" ]] && kill -TSTP $ti_pid
         ti_pid=""
+        timeNow=$(date +%s)
+        suspendTime=$(( timeNow - startTime ))
         printf "\r\b"
-        printf "%bPAUSED%b Press%s to continue..." "${GREEN}" "${NC}" "${RESTART_ARR[*]}"
+        printf "%bPAUSED%b Press%s to restart, s to continue & e to exit" "${GREEN}" "${NC}" "${RESTART_ARR[*]}"
     elif [[ $key == 'e' ]]; then
         if [[ $lastKey == 'e' ]] || [[ $lastKey == 's' ]]; then
-            [[ $ti_pid != "" ]] && kill $ti_pid
+            [[ $ti_pid != "" ]] && kill -TSTP $ti_pid
             ti_pid=""
             running=false
         fi
