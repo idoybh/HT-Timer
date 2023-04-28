@@ -51,6 +51,7 @@ time_int() {
         passedS=$(( passedS % 60 ))
         remainM=$(( remainS / 60 ))
         remainS=$(( remainS % 60 ))
+        trap -- '' SIGTSTP
         clear
         printf "%s " "${title}"
         if [[ $blinkC != 4 ]]; then
@@ -61,6 +62,7 @@ time_int() {
         fi
         figlet -w 400 -m 0 -- "$(printf -- "%s%02d:%02d" "${signStr}" $remainM $remainS)"
         echo -e "${NC}"
+        trap - SIGTSTP
         sleep 0.25
     done
 }
