@@ -15,6 +15,34 @@ NC="\033[0m" # reset color
 
 # Functions
 
+print_help() {
+    printf "Usage, Use one of the options:\n"
+    printf "./timer.sh %b<time>%b\n" "${GREEN}" "${NC}"
+    printf "./timer.sh %b<time>%b %b<title>%b\n" "${GREEN}" "${NC}" "${GREEN}" "${NC}"
+    printf "\nAlternatively use with one of these flags:\n"
+    printf "%b-c <config>%b where %bconfig%b is a path to a .conf file\n" "${GREEN}" "${NC}" "${GREEN}" "${NC}"
+    printf "%b-i%b for interactive selection of a config file in folder\n" "${GREEN}" "${NC}"
+    printf "\n%b<time> format%b is either n/o seconds or %bXhXmX%b\n" "${GREEN}" "${NC}" "${YELLOW}" "${NC}"
+    printf "where X is a number, h suffixes hours, m suffixes minutes and whatever comes next are added seconds\n"
+    printf "Examples:\n"
+    printf "120 = 120 seconds"
+    printf "2m = 2 minutes"
+    printf "5m2s = 5 minutes and 2 seconds\n"
+    printf "1h2 = 1 hour and 2 seconds\n"
+    printf "\n%bInterrupt keys%b when the timer is running:\n" "${GREEN}" "${NC}"
+    printf "%b%s%b and %bEnter%b - To restart the timer\n" "${GREEN}" "${RESTART_ARR[*]}" "${NC}" "${GREEN}" "${NC}"
+    printf "%bs%b - To suspend (pause) and resume the timer\n" "${GREEN}" "${NC}"
+    printf "%be%b - To exit (quit) the timer - has to be pressed twice in a row\n" "${GREEN}" "${NC}"
+    printf "\n%bConfig format:%b\n" "${GREEN}" "${NC}"
+    printf "File must end with .conf to appear in %b-i%b\n" "${GREEN}" "${NC}"
+    printf "the 1st line on the config file sets the time (see format above) and the 2nd sets the title\n"
+    printf "\n%bgeneral.conf:%b\n" "${GREEN}" "${NC}"
+    printf "If a file named \`general.conf\` is found withing the directory:\n"
+    printf "All lines are paths to .ogg sound files\n"
+    printf "1st line: A sound that'll play in the last 20s\n"
+    printf "1st line: A sound that'll play when the timer expires\n"
+}
+
 # Background thread
 time_int() {
     totalM=$(( time / 60 ))
@@ -113,6 +141,11 @@ init_config() {
 # done
 case "${1}" in
     -c) # config file
+        if [[ $# != 2 ]]; then
+            echo "Invalid number of arguments"
+            print_help
+            exit 1
+        fi
         init_config "$2"
         ;;
     -i) # interactive
@@ -132,9 +165,27 @@ case "${1}" in
         echo -n "> "
         read -r ans
         (( ans-- ))
+        if [[ $ans -lt 0 ]] || [[ $ans -ge $i ]]; then
+            echo "Input out of range"
+            exit 1
+        fi
         init_config "${files[$ans]}"
         ;;
+    -h|\?|--help)
+        print_help
+        exit 1
+        ;;
+    -*)
+        printf "Invalid flag %b%s%b\n\n" "${BLUE}" "${1}" "${NC}"
+        print_help
+        exit 1
+        ;;
     *) # directly from args
+        if [[ $# -lt 1 ]] || [[ $# -gt 2 ]]; then
+            printf "Invalid number of arguments\n\n"
+            print_help
+            exit 1
+        fi
         time=$(format_time "$1")
         title="$2"
         ;;
