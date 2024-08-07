@@ -79,7 +79,7 @@ time_int() {
         passedS=$(( passedS % 60 ))
         remainM=$(( remainS / 60 ))
         remainS=$(( remainS % 60 ))
-        trap -- '' SIGTSTP
+        trap "" SIGTERM
         clear
         printf "%s " "${title}"
         if [[ $blinkC != 4 ]]; then
@@ -90,7 +90,7 @@ time_int() {
         fi
         figlet -w 400 -m 0 -- "$(printf -- "%s%02d:%02d" "${signStr}" $remainM $remainS)"
         echo -e "${NC}"
-        trap - SIGTSTP
+        trap - SIGTERM
         sleep 0.25
     done
 }
@@ -206,7 +206,12 @@ while $running; do
     printf "\b \b"
     [[ $lastKey != 's' ]] && printf "\r"
     if [[ " ${RESTART_ARR[*]} " =~ " ${key} " ]]; then
-        [[ $ti_pid != "" ]] && kill -TSTP $ti_pid
+        if [[ $ti_pid != "" ]]; then
+            while ps -p "$ti_pid" > /dev/null; do
+                kill -TERM "$ti_pid"
+                sleep 0.1
+            done
+        fi
         ti_pid=""
         startTime=$(date +%s)
         time_int &
@@ -221,7 +226,12 @@ while $running; do
             lastKey=''
             continue
         fi
-        [[ $ti_pid != "" ]] && kill -TSTP $ti_pid
+        if [[ $ti_pid != "" ]]; then
+            while ps -p "$ti_pid" > /dev/null; do
+                kill -TERM "$ti_pid"
+                sleep 0.1
+            done
+        fi
         ti_pid=""
         timeNow=$(date +%s)
         suspendTime=$(( timeNow - startTime ))
@@ -229,7 +239,12 @@ while $running; do
         printf "%bPAUSED%b Press%s to restart, s to continue & e to exit" "${GREEN}" "${NC}" "${RESTART_ARR[*]}"
     elif [[ $key == 'e' ]]; then
         if [[ $lastKey == 'e' ]] || [[ $lastKey == 's' ]]; then
-            [[ $ti_pid != "" ]] && kill -TSTP $ti_pid
+            if [[ $ti_pid != "" ]]; then
+                while ps -p "$ti_pid" > /dev/null; do
+                    kill -TERM "$ti_pid"
+                    sleep 0.1
+                done
+            fi
             ti_pid=""
             running=false
         fi
