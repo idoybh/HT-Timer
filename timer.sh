@@ -3,9 +3,14 @@
 # Global vars
 time=0
 title=""
+rKey1=""
+rKey2=""
+sKey1=""
+sKey2=""
 RESTART_ARR=('' 'r' 'q' '/' 'ר')
 TWO_SOUND="$(sed '1!d' general.conf)"
 ONE_SOUND="$(sed '2!d' general.conf)"
+INPUT_DEVICE="$(sed '3!d' general.conf)"
 # Colors
 RED="\033[1;31m"
 GREEN="\033[1;32m"
@@ -91,7 +96,7 @@ time_int() {
         figlet -w 400 -m 0 -- "$(printf -- "%s%02d:%02d" "${signStr}" $remainM $remainS)"
         echo -e "${NC}"
         trap - SIGTERM
-        sleep 0.25
+        sleep 0.01
     done
 }
 
@@ -134,6 +139,12 @@ init_config() {
     fi
     time=$(format_time "$(sed '1!d' $file)")
     title="$(sed '2!d' $file)"
+    resetKeys="$(sed '3!d' $file)"
+    rKey1=$(echo "$resetKeys" | cut -d "," -f 1)
+    rKey2=$(echo "$resetKeys" | cut -d "," -f 2)
+    suspendKeys="$(sed '4!d' $file)"
+    sKey1=$(echo "$suspendKeys" | cut -d "," -f 1)
+    sKey2=$(echo "$suspendKeys" | cut -d "," -f 2)
 }
 
 # Args
@@ -201,7 +212,25 @@ lastKey=''
 running=true
 while $running; do
     key="none"
-    read -r -n 1 key
+    while ! read -r -t 0.01 -n 1 key; do
+        [[ $INPUT_DEVICE == "" ]] && continue
+        evtest --query "$INPUT_DEVICE" "EV_KEY" "KEY_${rKey1}"
+        key1Code=$?
+        evtest --query "$INPUT_DEVICE" "EV_KEY" "KEY_${rKey2}"
+        key2Code=$?
+        if [[ $key1Code == 10 ]] && [[ $key2Code == 10 ]]; then
+            key='r'
+            break
+        fi
+        evtest --query "$INPUT_DEVICE" "EV_KEY" "KEY_${sKey1}"
+        key1Code=$?
+        evtest --query "$INPUT_DEVICE" "EV_KEY" "KEY_${sKey2}"
+        key2Code=$?
+        if [[ $key1Code == 10 ]] && [[ $key2Code == 10 ]]; then
+            key='s'
+            break
+        fi
+    done
     key="${key,,}"
     printf "\b \b"
     [[ $lastKey != 's' ]] && printf "\r"
