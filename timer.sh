@@ -8,9 +8,9 @@ rKey2=""
 sKey1=""
 sKey2=""
 RESTART_ARR=('' 'r' 'q' '/' 'ר')
-TWO_SOUND="$(sed '1!d' general.conf)"
-ONE_SOUND="$(sed '2!d' general.conf)"
-INPUT_DEVICE="$(sed '3!d' general.conf)"
+WARN_SOUND="$(grep "warn_sound" "general.conf" | cut -d "=" -f 2 | xargs)"
+PASS_SOUND="$(grep "pass_sound" "general.conf" | cut -d "=" -f 2 | xargs)"
+INPUT_DEVICE="$(grep "input_device" "general.conf" | cut -d "=" -f 2 | xargs)"
 # Colors
 RED="\033[1;31m"
 GREEN="\033[1;32m"
@@ -21,11 +21,11 @@ NC="\033[0m" # reset color
 # Functions
 
 print_help() {
-    printf "Usage, Use one of the options:\n"
+    printf "Usage, Use one of the options, options in [] are optional:\n"
     printf "./timer.sh %b<time>%b\n" "${GREEN}" "${NC}"
-    printf "./timer.sh %b<time>%b %b<title>%b\n" "${GREEN}" "${NC}" "${GREEN}" "${NC}"
+    printf "./timer.sh %b<time>%b %b<title>%b [%b<restart key-combo>%b] [%b<suspend key-combo>%b]\n" "${GREEN}" "${NC}" "${GREEN}" "${NC}" "${GREEN}" "${NC}" "${GREEN}" "${NC}"
     printf "\nAlternatively use with one of these flags:\n"
-    printf "%b-c <config>%b where %bconfig%b is a path to a .conf file\n" "${GREEN}" "${NC}" "${GREEN}" "${NC}"
+    printf "%b-c <config>%b where %b<config>%b is a path to a .conf file\n" "${GREEN}" "${NC}" "${GREEN}" "${NC}"
     printf "%b-i%b for interactive selection of a config file in folder\n" "${GREEN}" "${NC}"
     printf "\n%b<time> format%b is either n/o seconds or %bXhXmX%b\n" "${GREEN}" "${NC}" "${YELLOW}" "${NC}"
     printf "where X is a number, h suffixes hours, m suffixes minutes and whatever comes next are added seconds\n"
@@ -34,18 +34,24 @@ print_help() {
     printf "2m = 2 minutes\n"
     printf "5m2s = 5 minutes and 2 seconds\n"
     printf "1h2 = 1 hour and 2 seconds\n"
+    printf "\n%b<key-combo> format is a list of exactly 2 keys delimited by a ','%b\n" "${GREEN}" "${NC}"
+    printf "find which key is which using the command %bevtest%b\n" "${YELLOW}" "${NC}"
     printf "\n%bInterrupt keys%b when the timer is running:\n" "${GREEN}" "${NC}"
     printf "%b%s%b and %bEnter%b - To restart the timer\n" "${GREEN}" "${RESTART_ARR[*]}" "${NC}" "${GREEN}" "${NC}"
     printf "%bs%b - To suspend (pause) and resume the timer\n" "${GREEN}" "${NC}"
     printf "%be%b - To exit (quit) the timer - has to be pressed twice in a row\n" "${GREEN}" "${NC}"
     printf "\n%bConfig format:%b\n" "${GREEN}" "${NC}"
     printf "File must end with .conf to appear in %b-i%b\n" "${GREEN}" "${NC}"
-    printf "the 1st line on the config file sets the time (see format above) and the 2nd sets the title\n"
+    printf "Must contain %btime=[time string]%b to set the timer's time\n" "${GREEN}" "${NC}"
+    printf "Add %btitle=%b[title string]%b to set the timer's title\n" "${GREEN}" "${YELLOW}" "${NC}"
+    printf "Add %breset_keys=%b[keys list]%b to set the timer's reset key-combo\n" "${GREEN}" "${YELLOW}" "${NC}"
+    printf "Add %bsuspend_keys=%b[keys list]%b to set the timer's suspend key-combo\n" "${GREEN}" "${YELLOW}" "${NC}"
     printf "\n%bgeneral.conf:%b\n" "${GREEN}" "${NC}"
     printf "If a file named \`general.conf\` is found withing the directory:\n"
     printf "All lines are paths to .ogg sound files\n"
-    printf "1st line: A sound that'll play in the last 20s\n"
-    printf "2nd line: A sound that'll play when the timer expires\n"
+    printf "Add %bwarn_sound=%b[path to an ogg file]%b to play that file in the last 20s\n" "${GREEN}" "${YELLOW}" "${NC}"
+    printf "Add %bpass_sound=%b[path to an ogg file]%b to play that file when the timer expires\n" "${GREEN}" "${YELLOW}" "${NC}"
+    printf "Add %binput_device=%b[path to keyboard's /dev/input/eventX file]%b to use keycombos\n" "${GREEN}" "${YELLOW}" "${NC}"
 }
 
 # Background thread
@@ -64,7 +70,7 @@ time_int() {
             printf "\a %b" "${RED}"
             (( blinkC++ ))
             if [[ $played1 == false ]]; then
-                ogg123 -q "$ONE_SOUND" &
+                [[ "$PASS_SOUND" != "" ]] && ogg123 -q "$PASS_SOUND" &
                 played1=true
             fi
             remainS=$(( -1 * remainS ))
@@ -72,7 +78,7 @@ time_int() {
         elif [[ $remainS -le 20 ]]; then
             printf "\a %b" "${RED}"
             if [[ $played2 == false ]]; then
-                ogg123 -q "$TWO_SOUND" &
+                [[ "$WARN_SOUND" != "" ]] && ogg123 -q "$WARN_SOUND" &
                 played2=true
             fi
         elif [[ $remainS -le 60 ]]; then
@@ -87,8 +93,10 @@ time_int() {
         trap "" SIGTERM
         clear
         printf "%s " "${title}"
-        if [[ $blinkC != 4 ]]; then
+        if [[ $blinkC -lt 50 ]]; then
             printf "(%02d:%02d / %02d:%02d)\n" $passedM $passedS $totalM $totalS
+        elif [[ $blinkC -lt 75 ]]; then
+            printf "\n"
         else
             printf "\n"
             blinkC=0
@@ -137,12 +145,12 @@ init_config() {
         echo "Config file does not exist!"
         exit 1
     fi
-    time=$(format_time "$(sed '1!d' $file)")
-    title="$(sed '2!d' $file)"
-    resetKeys="$(sed '3!d' $file)"
+    time=$(format_time "$(grep "time" "$file" | cut -d "=" -f 2 | xargs)")
+    title="$(grep "title" "$file" | cut -d "=" -f 2 | xargs)"
+    resetKeys="$(grep "reset_keys" "$file" | cut -d "=" -f 2 | xargs)"
     rKey1=$(echo "$resetKeys" | cut -d "," -f 1)
     rKey2=$(echo "$resetKeys" | cut -d "," -f 2)
-    suspendKeys="$(sed '4!d' $file)"
+    suspendKeys="$(grep "suspend_keys" "$file" | cut -d "=" -f 2 | xargs)"
     sKey1=$(echo "$suspendKeys" | cut -d "," -f 1)
     sKey2=$(echo "$suspendKeys" | cut -d "," -f 2)
 }
@@ -192,13 +200,19 @@ case "${1}" in
         exit 1
         ;;
     *) # directly from args
-        if [[ $# -lt 1 ]] || [[ $# -gt 2 ]]; then
+        if [[ $# -lt 1 ]] || [[ $# -gt 4 ]]; then
             printf "Invalid number of arguments\n\n"
             print_help
             exit 1
         fi
         time=$(format_time "$1")
         title="$2"
+        resetKeys="$3"
+        suspendKeys="$4"
+        rKey1=$(echo "$resetKeys" | cut -d "," -f 1)
+        rKey2=$(echo "$resetKeys" | cut -d "," -f 2)
+        sKey1=$(echo "$suspendKeys" | cut -d "," -f 1)
+        sKey2=$(echo "$suspendKeys" | cut -d "," -f 2)
         ;;
 esac
 
@@ -214,21 +228,25 @@ while $running; do
     key="none"
     while ! read -r -t 0.01 -n 1 key; do
         [[ $INPUT_DEVICE == "" ]] && continue
-        evtest --query "$INPUT_DEVICE" "EV_KEY" "KEY_${rKey1}"
-        key1Code=$?
-        evtest --query "$INPUT_DEVICE" "EV_KEY" "KEY_${rKey2}"
-        key2Code=$?
-        if [[ $key1Code == 10 ]] && [[ $key2Code == 10 ]]; then
-            key='r'
-            break
+        if [[ $rKey1 != "" ]] && [[ $rKey2 != "" ]]; then
+            evtest --query "$INPUT_DEVICE" "EV_KEY" "KEY_${rKey1}"
+            key1Code=$?
+            evtest --query "$INPUT_DEVICE" "EV_KEY" "KEY_${rKey2}"
+            key2Code=$?
+            if [[ $key1Code == 10 ]] && [[ $key2Code == 10 ]]; then
+                key='r'
+                break
+            fi
         fi
-        evtest --query "$INPUT_DEVICE" "EV_KEY" "KEY_${sKey1}"
-        key1Code=$?
-        evtest --query "$INPUT_DEVICE" "EV_KEY" "KEY_${sKey2}"
-        key2Code=$?
-        if [[ $key1Code == 10 ]] && [[ $key2Code == 10 ]]; then
-            key='s'
-            break
+        if [[ $sKey1 != "" ]] && [[ $sKey2 != "" ]]; then
+            evtest --query "$INPUT_DEVICE" "EV_KEY" "KEY_${sKey1}"
+            key1Code=$?
+            evtest --query "$INPUT_DEVICE" "EV_KEY" "KEY_${sKey2}"
+            key2Code=$?
+            if [[ $key1Code == 10 ]] && [[ $key2Code == 10 ]]; then
+                key='s'
+                break
+            fi
         fi
     done
     key="${key,,}"
