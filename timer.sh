@@ -103,6 +103,16 @@ time_int() {
         fi
         figlet -w 400 -m 0 -- "$(printf -- "%s%02d:%02d" "${signStr}" $remainM $remainS)"
         echo -e "${NC}"
+        addLine=0
+        if [[ $rKey1 != "" ]] && [[ $rKey2 != "" ]]; then
+            printf "restart: '%b%s+%s%b'" "${BLUE}" "${rKey1}" "${rKey2}" "${NC}"
+            addLine=1
+        fi
+        if [[ $sKey1 != "" ]] && [[ $sKey2 != "" ]]; then
+            printf " suspend: '%b%s+%s%b'" "${BLUE}" "${sKey1}" "${sKey2}" "${NC}"
+            addLine=1
+        fi
+        [[ $addLine == 1 ]] && printf "\n\n"
         trap - SIGTERM
         sleep 0.01
     done
