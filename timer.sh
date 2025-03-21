@@ -7,6 +7,7 @@ rKey1=""
 rKey2=""
 sKey1=""
 sKey2=""
+startSuspended=false
 RESTART_ARR=('' 'r' 'q' '/' 'ר')
 WARN_SOUND="$(grep "warn_sound" "general.conf" | cut -d "=" -f 2 | xargs)"
 PASS_SOUND="$(grep "pass_sound" "general.conf" | cut -d "=" -f 2 | xargs)"
@@ -27,6 +28,7 @@ print_help() {
     printf "\nAlternatively use with one of these flags:\n"
     printf "%b-c <config>%b where %b<config>%b is a path to a .conf file\n" "${GREEN}" "${NC}" "${GREEN}" "${NC}"
     printf "%b-i%b for interactive selection of a config file in folder\n" "${GREEN}" "${NC}"
+    printf "%b-i%b to start the timer paused\n" "${GREEN}" "${NC}"
     printf "\n%b<time> format%b is either n/o seconds or %bXhXmX%b\n" "${GREEN}" "${NC}" "${YELLOW}" "${NC}"
     printf "where X is a number, h suffixes hours, m suffixes minutes and whatever comes next are added seconds\n"
     printf "Examples:\n"
@@ -44,11 +46,11 @@ print_help() {
     printf "File must end with .conf to appear in %b-i%b\n" "${GREEN}" "${NC}"
     printf "Must contain %btime=[time string]%b to set the timer's time\n" "${GREEN}" "${NC}"
     printf "Add %btitle=%b[title string]%b to set the timer's title\n" "${GREEN}" "${YELLOW}" "${NC}"
+    printf "Add %bsuspended=%btrue%b to start the timer paused\n" "${GREEN}" "${YELLOW}" "${NC}"
     printf "Add %breset_keys=%b[keys list]%b to set the timer's reset key-combo\n" "${GREEN}" "${YELLOW}" "${NC}"
     printf "Add %bsuspend_keys=%b[keys list]%b to set the timer's suspend key-combo\n" "${GREEN}" "${YELLOW}" "${NC}"
     printf "\n%bgeneral.conf:%b\n" "${GREEN}" "${NC}"
     printf "If a file named \`general.conf\` is found withing the directory:\n"
-    printf "All lines are paths to .ogg sound files\n"
     printf "Add %bwarn_sound=%b[path to an ogg file]%b to play that file in the last 20s\n" "${GREEN}" "${YELLOW}" "${NC}"
     printf "Add %bpass_sound=%b[path to an ogg file]%b to play that file when the timer expires\n" "${GREEN}" "${YELLOW}" "${NC}"
     printf "Add %binput_device=%b[path to keyboard's /dev/input/eventX file]%b to use keycombos\n" "${GREEN}" "${YELLOW}" "${NC}"
@@ -157,6 +159,10 @@ init_config() {
     fi
     time=$(format_time "$(grep "time" "$file" | cut -d "=" -f 2 | xargs)")
     title="$(grep "title" "$file" | cut -d "=" -f 2 | xargs)"
+    if ! $startSuspended; then
+        startSuspended=$(grep "suspended" "$file" | cut -d "=" -f 2 | xargs)
+        [[ $startSuspended == "" ]] && startSuspended=false
+    fi
     resetKeys="$(grep "reset_keys" "$file" | cut -d "=" -f 2 | xargs)"
     rKey1=$(echo "$resetKeys" | cut -d "," -f 1)
     rKey2=$(echo "$resetKeys" | cut -d "," -f 2)
@@ -166,18 +172,19 @@ init_config() {
 }
 
 # Args
-# while [[ $# -gt 0 ]]; do
-# done
+while [[ $# -gt 0 ]]; do
 case "${1}" in
-    -c) # config file
+    -c) # config file )
         if [[ $# != 2 ]]; then
             echo "Invalid number of arguments"
             print_help
             exit 1
         fi
         init_config "$2"
+        shift
+        shift
         ;;
-    -i) # interactive
+    -i) # interactive )
         echo "Choose a file: "
         files=()
         i=0
@@ -199,17 +206,22 @@ case "${1}" in
             exit 1
         fi
         init_config "${files[$ans]}"
+        shift
+        ;;
+    -s) # suspend )
+        startSuspended=true
+        shift
         ;;
     -h|\?|--help)
         print_help
         exit 1
         ;;
-    -*)
+    -*) # unknown flag )
         printf "Invalid flag %b%s%b\n\n" "${BLUE}" "${1}" "${NC}"
         print_help
         exit 1
         ;;
-    *) # directly from args
+    *) # directly from args )
         if [[ $# -lt 1 ]] || [[ $# -gt 4 ]]; then
             printf "Invalid number of arguments\n\n"
             print_help
@@ -223,8 +235,13 @@ case "${1}" in
         rKey2=$(echo "$resetKeys" | cut -d "," -f 2)
         sKey1=$(echo "$suspendKeys" | cut -d "," -f 1)
         sKey2=$(echo "$suspendKeys" | cut -d "," -f 2)
+        shift
+        shift
+        shift
+        shift
         ;;
 esac
+done
 
 # Main logic
 startTime=$(date +%s)
@@ -257,6 +274,11 @@ while $running; do
                 key='s'
                 break
             fi
+        fi
+        if $startSuspended; then
+            startSuspended=false
+            key='s'
+            break
         fi
     done
     key="${key,,}"
