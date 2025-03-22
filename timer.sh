@@ -187,25 +187,16 @@ case "${1}" in
     -i) # interactive )
         echo "Choose a file: "
         files=()
-        i=0
         for file in *; do
             [[ $file == "general.conf" ]] && continue
             ext=$(echo "$file" | cut -f 2 -d ".")
             if ! [[ $ext == "conf" ]]; then
                 continue
             fi
-            (( i++ ))
-            echo "${i}. ${file}"
+            file=$(echo "$file" | cut -f 1 -d ".")
             files+=("$file")
         done
-        echo -n "> "
-        read -r ans
-        (( ans-- ))
-        if [[ $ans -lt 0 ]] || [[ $ans -ge $i ]]; then
-            echo "Input out of range"
-            exit 1
-        fi
-        init_config "${files[$ans]}"
+        init_config "$(printf "%s\n" "${files[@]}" | fzy).conf"
         shift
         ;;
     -s) # suspend )
