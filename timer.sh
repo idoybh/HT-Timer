@@ -8,10 +8,11 @@ rKey2=""
 sKey1=""
 sKey2=""
 startSuspended=false
-RESTART_ARR=('' 'r' 'q' '/' 'ר')
+warnTime="$(grep "warn_time" "general.conf" | cut -d "=" -f 2 | xargs)"
 WARN_SOUND="$(grep "warn_sound" "general.conf" | cut -d "=" -f 2 | xargs)"
 PASS_SOUND="$(grep "pass_sound" "general.conf" | cut -d "=" -f 2 | xargs)"
 INPUT_DEVICE="$(grep "input_device" "general.conf" | cut -d "=" -f 2 | xargs)"
+RESTART_ARR=('' 'r' 'q' '/' 'ר')
 # Colors
 RED="\033[1;31m"
 GREEN="\033[1;32m"
@@ -49,9 +50,11 @@ print_help() {
     printf "Add %bsuspended=%btrue%b to start the timer paused\n" "${GREEN}" "${YELLOW}" "${NC}"
     printf "Add %breset_keys=%b[keys list]%b to set the timer's reset key-combo\n" "${GREEN}" "${YELLOW}" "${NC}"
     printf "Add %bsuspend_keys=%b[keys list]%b to set the timer's suspend key-combo\n" "${GREEN}" "${YELLOW}" "${NC}"
+    printf "Add %bwarn_time=%b[time in seconds]%b this overrides general.conf's time (see below)\n" "${GREEN}" "${YELLOW}" "${NC}"
     printf "\n%bgeneral.conf:%b\n" "${GREEN}" "${NC}"
     printf "If a file named \`general.conf\` is found withing the directory:\n"
-    printf "Add %bwarn_sound=%b[path to an ogg file]%b to play that file in the last 20s\n" "${GREEN}" "${YELLOW}" "${NC}"
+    printf "Add %bwarn_time=%b[time in seconds]%b to set the remaining time where a warning should be displayed / played\n" "${GREEN}" "${YELLOW}" "${NC}"
+    printf "Add %bwarn_sound=%b[path to an ogg file]%b to play that file when %bwarn_time%b has passed\n" "${GREEN}" "${YELLOW}" "${NC}" "${GREEN}" "${NC}"
     printf "Add %bpass_sound=%b[path to an ogg file]%b to play that file when the timer expires\n" "${GREEN}" "${YELLOW}" "${NC}"
     printf "Add %binput_device=%b[path to keyboard's /dev/input/eventX file]%b to use keycombos\n" "${GREEN}" "${YELLOW}" "${NC}"
 }
@@ -77,7 +80,7 @@ time_int() {
             fi
             remainS=$(( -1 * remainS ))
             signStr="-"
-        elif [[ $remainS -le 20 ]]; then
+        elif [[ $remainS -le $warnTime ]]; then
             printf "\a %b" "${RED}"
             if [[ $played2 == false ]]; then
                 [[ "$WARN_SOUND" != "" ]] && ogg123 -q "$WARN_SOUND" &
@@ -169,6 +172,9 @@ init_config() {
     suspendKeys="$(grep "suspend_keys" "$file" | cut -d "=" -f 2 | xargs)"
     sKey1=$(echo "$suspendKeys" | cut -d "," -f 1)
     sKey2=$(echo "$suspendKeys" | cut -d "," -f 2)
+    if grep -q "warn_time" "$file"; then
+        warnTime="$(grep "warn_time" "$file" | cut -d "=" -f 2 | xargs)"
+    fi
 }
 
 # Args
