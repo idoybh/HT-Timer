@@ -64,40 +64,42 @@ print_help() {
 
 # Background thread
 time_int() {
-    totalM=$(( time / 60 ))
-    totalS=$(( time % 60 ))
+    once=$1
+    [[ $once == "" ]] && once=false
+    totalM=$(( time / 60000 ))
+    totalS=$(( (time % 60000) / 1000 ))
     local played1=false
     local played2=false
     local blinkC=0
     while true; do
-        timeNow=$(date +%s)
-        passedS=$(( timeNow - startTime ))
-        remainS=$(( time - passedS ))
+        ! $once && timeNow=$(date +%s%3N)
+        passedMS=$(( timeNow - startTime ))
+        remainMS=$(( time - passedMS ))
         signStr=""
-        if [[ $passedS -ge $time ]]; then
+        if [[ $passedMS -ge $time ]]; then
             printf "\a %b" "${RED}"
             (( blinkC++ ))
-            if [[ $played1 == false ]]; then
+            if ! $played1; then
                 [[ "$PASS_SOUND" != "" ]] && ogg123 -q "$PASS_SOUND" &
                 played1=true
             fi
-            remainS=$(( -1 * remainS ))
+            remainMS=$(( -1 * remainMS ))
             signStr="-"
-        elif [[ $remainS -le $warnTime ]]; then
+        elif [[ $remainMS -le $(( warnTime * 1000)) ]]; then
             printf "\a %b" "${RED}"
-            if [[ $played2 == false ]]; then
+            if ! $played2; then
                 [[ "$WARN_SOUND" != "" ]] && ogg123 -q "$WARN_SOUND" &
                 played2=true
             fi
-        elif [[ $remainS -le 60 ]]; then
+        elif [[ $remainMS -le 60000 ]]; then
             printf "%b" "${YELLOW}"
-        elif [[ $remainS -le 120 ]]; then
+        elif [[ $remainMS -le 120000 ]]; then
             printf "%b" "${BLUE}"
         fi
-        passedM=$(( passedS / 60 ))
-        passedS=$(( passedS % 60 ))
-        remainM=$(( remainS / 60 ))
-        remainS=$(( remainS % 60 ))
+        passedM=$(( passedMS / 60000 ))
+        passedS=$(( (passedMS % 60000) / 1000 ))
+        remainM=$(( remainMS / 60000 ))
+        remainS=$(( (remainMS % 60000) / 1000 ))
         trap "" SIGTERM
         clear
         printf "%s " "${title}"
@@ -110,25 +112,27 @@ time_int() {
             blinkC=0
         fi
         figlet -w 400 -m 0 -- "$(printf -- "%s%02d:%02d" "${signStr}" $remainM $remainS)"
+        printf "ms: %s%03d\n" "${signStr}" $(( remainMS % 1000 ))
         echo -e "${NC}"
-        addLine=0
+        addLine=false
         if [[ $rKey1 != "" ]] && [[ $rKey2 != "" ]]; then
             printf "restart: '%b%s+%s%b'" "${BLUE}" "${rKey1}" "${rKey2}" "${NC}"
-            addLine=1
+            addLine=true
         fi
         if [[ $sKey1 != "" ]] && [[ $sKey2 != "" ]]; then
             printf " suspend: '%b%s+%s%b'" "${BLUE}" "${sKey1}" "${sKey2}" "${NC}"
-            addLine=1
+            addLine=true
         fi
-        [[ $addLine == 1 ]] && printf "\n\n"
+        $addLine && printf "\n\n"
         trap - SIGTERM
+        $once && break
         sleep 0.01
     done
 }
 
 # Sets the needed vars for this timer
 # $1 = time via format
-# returns the time in seconds
+# returns the time in milliseconds
 format_time() {
     local res=0
     local text=$1
@@ -152,7 +156,7 @@ format_time() {
         fi
         res=$(( res + char ))
     done
-    echo $res
+    echo $(( res * 1000 ))
 }
 
 # inits vars from a given file
@@ -252,10 +256,12 @@ esac
 done
 
 # Main logic
-startTime=$(date +%s)
-suspendTime=$(date +%s)
-time_int &
-ti_pid=$!
+startTime=$(date +%s%3N)
+suspendTime=$startTime
+if ! $startSuspended; then
+    time_int &
+    ti_pid=$!
+fi
 
 lastKey=''
 running=true
@@ -286,6 +292,13 @@ while $running; do
         if $startSuspended; then
             startSuspended=false
             key='s'
+            timeNow=$(date +%s%3N)
+            startTime=$timeNow
+            suspendTime=$timeNow
+            time_int true
+            ti_pid=""
+            printf "\r\b"
+            printf "%bPAUSED%b Press%s to restart, s to continue & e to exit" "${GREEN}" "${NC}" "${RESTART_ARR[*]}"
             break
         fi
     done
@@ -300,13 +313,13 @@ while $running; do
             done
         fi
         ti_pid=""
-        startTime=$(date +%s)
+        startTime=$(date +%s%3N)
         time_int &
         ti_pid=$!
     elif [[ $key == 's' ]]; then
         if [[ $lastKey == 's' ]]; then
             # handling resume
-            timeNow=$(date +%s)
+            timeNow=$(date +%s%3N)
             startTime=$(( timeNow - suspendTime ))
             time_int &
             ti_pid=$!
@@ -320,13 +333,13 @@ while $running; do
             done
         fi
         ti_pid=""
-        timeNow=$(date +%s)
+        timeNow=$(date +%s%3N)
         if $restartOnSuspend; then
             startTime=$timeNow
             suspendTime=0
             time_int true
         else
-            timeNow=$(date +%s)
+            timeNow=$(date +%s%3N)
             suspendTime=$(( timeNow - startTime ))
         fi
         printf "\r\b"
