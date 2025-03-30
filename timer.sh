@@ -8,6 +8,7 @@ rKey2=""
 sKey1=""
 sKey2=""
 startSuspended=false
+restartOnSuspend=false
 warnTime="$(grep "warn_time" "general.conf" | cut -d "=" -f 2 | xargs)"
 WARN_SOUND="$(grep "warn_sound" "general.conf" | cut -d "=" -f 2 | xargs)"
 PASS_SOUND="$(grep "pass_sound" "general.conf" | cut -d "=" -f 2 | xargs)"
@@ -29,7 +30,8 @@ print_help() {
     printf "\nAlternatively use with one of these flags:\n"
     printf "%b-c <config>%b where %b<config>%b is a path to a .conf file\n" "${GREEN}" "${NC}" "${GREEN}" "${NC}"
     printf "%b-i%b for interactive selection of a config file in folder\n" "${GREEN}" "${NC}"
-    printf "%b-i%b to start the timer paused\n" "${GREEN}" "${NC}"
+    printf "%b-s%b to start the timer paused\n" "${GREEN}" "${NC}"
+    printf "%b--s-r%b to restart the timer when paused\n" "${GREEN}" "${NC}"
     printf "\n%b<time> format%b is either n/o seconds or %bXhXmX%b\n" "${GREEN}" "${NC}" "${YELLOW}" "${NC}"
     printf "where X is a number, h suffixes hours, m suffixes minutes and whatever comes next are added seconds\n"
     printf "Examples:\n"
@@ -48,6 +50,7 @@ print_help() {
     printf "Must contain %btime=[time string]%b to set the timer's time\n" "${GREEN}" "${NC}"
     printf "Add %btitle=%b[title string]%b to set the timer's title\n" "${GREEN}" "${YELLOW}" "${NC}"
     printf "Add %bsuspended=%btrue%b to start the timer paused\n" "${GREEN}" "${YELLOW}" "${NC}"
+    printf "Add %bsuspend_restarts=%btrue%b to restart the timer when paused\n" "${GREEN}" "${YELLOW}" "${NC}"
     printf "Add %breset_keys=%b[keys list]%b to set the timer's reset key-combo\n" "${GREEN}" "${YELLOW}" "${NC}"
     printf "Add %bsuspend_keys=%b[keys list]%b to set the timer's suspend key-combo\n" "${GREEN}" "${YELLOW}" "${NC}"
     printf "Add %bwarn_time=%b[time in seconds]%b this overrides general.conf's time (see below)\n" "${GREEN}" "${YELLOW}" "${NC}"
@@ -166,6 +169,10 @@ init_config() {
         startSuspended=$(grep "suspended" "$file" | cut -d "=" -f 2 | xargs)
         [[ $startSuspended == "" ]] && startSuspended=false
     fi
+    if ! $restartOnSuspend; then
+        restartOnSuspend=$(grep "suspend_restarts" "$file" | cut -d "=" -f 2 | xargs)
+        [[ $restartOnSuspend == "" ]] && restartOnSuspend=false
+    fi
     resetKeys="$(grep "reset_keys" "$file" | cut -d "=" -f 2 | xargs)"
     rKey1=$(echo "$resetKeys" | cut -d "," -f 1)
     rKey2=$(echo "$resetKeys" | cut -d "," -f 2)
@@ -209,7 +216,11 @@ case "${1}" in
         startSuspended=true
         shift
         ;;
-    -h|\?|--help)
+    --s-r) # restart on suspend )
+        restartOnSuspend=true
+        shift
+        ;;
+    -h|\?|--help) # help )
         print_help
         exit 1
         ;;
@@ -310,7 +321,14 @@ while $running; do
         fi
         ti_pid=""
         timeNow=$(date +%s)
-        suspendTime=$(( timeNow - startTime ))
+        if $restartOnSuspend; then
+            startTime=$timeNow
+            suspendTime=0
+            time_int true
+        else
+            timeNow=$(date +%s)
+            suspendTime=$(( timeNow - startTime ))
+        fi
         printf "\r\b"
         printf "%bPAUSED%b Press%s to restart, s to continue & e to exit" "${GREEN}" "${NC}" "${RESTART_ARR[*]}"
     elif [[ $key == 'e' ]]; then
