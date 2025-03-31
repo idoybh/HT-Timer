@@ -13,6 +13,7 @@ warnTime="$(grep "warn_time" "general.conf" | cut -d "=" -f 2 | xargs)"
 WARN_SOUND="$(grep "warn_sound" "general.conf" | cut -d "=" -f 2 | xargs)"
 PASS_SOUND="$(grep "pass_sound" "general.conf" | cut -d "=" -f 2 | xargs)"
 INPUT_DEVICE="$(grep "input_device" "general.conf" | cut -d "=" -f 2 | xargs)"
+TIMERS_DIR="timers"
 RESTART_ARR=('' 'r' 'q' '/' 'ר')
 # Colors
 RED="\033[1;31m"
@@ -46,7 +47,8 @@ print_help() {
     printf "%bs%b - To suspend (pause) and resume the timer\n" "${GREEN}" "${NC}"
     printf "%be%b - To exit (quit) the timer - has to be pressed twice in a row\n" "${GREEN}" "${NC}"
     printf "\n%bConfig format:%b\n" "${GREEN}" "${NC}"
-    printf "File must end with .conf to appear in %b-i%b\n" "${GREEN}" "${NC}"
+    printf "File must end with .conf and be inside a sub-dir under timers dir to appear in %b-i%b\n" "${GREEN}" "${NC}"
+    printf "the sub-dirs under %btimers%b are used for categorization\n" "${BLUE}" "${NC}"
     printf "Must contain %btime=[time string]%b to set the timer's time\n" "${GREEN}" "${NC}"
     printf "Add %btitle=%b[title string]%b to set the timer's title\n" "${GREEN}" "${YELLOW}" "${NC}"
     printf "Add %bsuspended=%btrue%b to start the timer paused\n" "${GREEN}" "${YELLOW}" "${NC}"
@@ -198,18 +200,22 @@ case "${1}" in
         shift
         ;;
     -i) # interactive )
-        echo "Choose a file: "
+        dirArr=()
+        for dir in "$TIMERS_DIR"/*; do
+            ! [ -d "$dir" ] && continue
+            dirArr+=("$(echo "$dir" | cut -f 2 -d "/")")
+        done
+        selectedDir="$(printf "%s\n" "${dirArr[@]}" | fzy -p "directory > ")"
         files=()
-        for file in *; do
-            [[ $file == "general.conf" ]] && continue
+        for file in "$TIMERS_DIR"/"$selectedDir"/*; do
+            file=$(basename "$file")
             ext=$(echo "$file" | cut -f 2 -d ".")
-            if ! [[ $ext == "conf" ]]; then
-                continue
-            fi
+            [[ $ext != "conf" ]] && continue
             file=$(echo "$file" | cut -f 1 -d ".")
             files+=("$file")
         done
-        init_config "$(printf "%s\n" "${files[@]}" | fzy).conf"
+        selectedFile="$(printf "%s\n" "${files[@]}" | fzy -p "file > ").conf"
+        init_config "${TIMERS_DIR}/${selectedDir}/${selectedFile}"
         shift
         ;;
     -s) # suspend )
