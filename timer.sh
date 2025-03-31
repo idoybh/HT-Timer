@@ -136,25 +136,21 @@ time_int() {
 format_time() {
     local res=0
     local text=$1
-    local mul=false
     for (( i=0; i<${#text}; i++ )); do # foreach char
         local char="${text:$i:1}"
+        local num=0
+        while [[ $char =~ ^[0-9]+$ ]]; do
+            num=$(( num * 10 ))
+            num=$(( num + char ))
+            (( i++ ))
+            char="${text:$i:1}"
+        done
         if [[ $char == 'm' ]]; then
-            res=$(( res * 60 )) # minutes to seconds
-            mul=true
-            continue
+            num=$(( num * 60 )) # minutes to seconds
         elif [[ $char == 'h' ]]; then
-            res=$(( res * 3600 )) # hours to seconds
-            mul=true
-            continue
-        elif [[ $char == 's' ]]; then
-            continue # just skip it
+            num=$(( num * 3600 )) # hours to seconds
         fi
-        if [[ $mul != true ]]; then
-            res=$(( res * 10 ))
-            mul=false
-        fi
-        res=$(( res + char ))
+        res=$(( res + num ))
     done
     echo $(( res * 1000 ))
 }
