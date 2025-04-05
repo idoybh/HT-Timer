@@ -114,7 +114,7 @@ time_int() {
             blinkC=0
         fi
         figlet -w 400 -m 0 -- "$(printf -- "%s%02d:%02d" "${signStr}" $remainM $remainS)"
-        printf "ms: %s%03d\n" "${signStr}" $(( remainMS % 1000 ))
+        # printf "ms: %s%03d\n" "${signStr}" $(( remainMS % 1000 ))
         echo -e "${NC}"
         addLine=false
         if [[ $rKey1 != "" ]] && [[ $rKey2 != "" ]]; then
@@ -272,9 +272,9 @@ while $running; do
     while ! read -r -t 0.01 -n 1 key; do
         [[ $INPUT_DEVICE == "" ]] && continue
         if [[ $rKey1 != "" ]] && [[ $rKey2 != "" ]]; then
-            evtest --query "$INPUT_DEVICE" "EV_KEY" "KEY_${rKey1}"
+            evtest --query "$INPUT_DEVICE" "EV_KEY" "KEY_${rKey1}" 2>&1 /dev/null
             key1Code=$?
-            evtest --query "$INPUT_DEVICE" "EV_KEY" "KEY_${rKey2}"
+            evtest --query "$INPUT_DEVICE" "EV_KEY" "KEY_${rKey2}" 2>&1 /dev/null
             key2Code=$?
             if [[ $key1Code == 10 ]] && [[ $key2Code == 10 ]]; then
                 key='r'
@@ -282,9 +282,9 @@ while $running; do
             fi
         fi
         if [[ $sKey1 != "" ]] && [[ $sKey2 != "" ]]; then
-            evtest --query "$INPUT_DEVICE" "EV_KEY" "KEY_${sKey1}"
+            evtest --query "$INPUT_DEVICE" "EV_KEY" "KEY_${sKey1}" 2>&1 /dev/null
             key1Code=$?
-            evtest --query "$INPUT_DEVICE" "EV_KEY" "KEY_${sKey2}"
+            evtest --query "$INPUT_DEVICE" "EV_KEY" "KEY_${sKey2}" 2>&1 /dev/null
             key2Code=$?
             if [[ $key1Code == 10 ]] && [[ $key2Code == 10 ]]; then
                 key='s'
