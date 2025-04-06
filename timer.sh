@@ -70,8 +70,9 @@ time_int() {
     [[ $once == "" ]] && once=false
     totalM=$(( time / 60000 ))
     totalS=$(( (time % 60000) / 1000 ))
-    local played1=false
-    local played2=false
+    local played1=$once
+    local played2=$once
+    local first=true
     local blinkC=0
     while true; do
         ! $once && timeNow=$(date +%s%3N)
@@ -82,7 +83,7 @@ time_int() {
             printf "\a %b" "${RED}"
             (( blinkC++ ))
             if ! $played1; then
-                [[ "$PASS_SOUND" != "" ]] && ogg123 -q "$PASS_SOUND" &
+                [[ "$PASS_SOUND" != "" ]] && ! $first && ogg123 -q "$PASS_SOUND" &
                 played1=true
             fi
             remainMS=$(( -1 * remainMS ))
@@ -90,7 +91,7 @@ time_int() {
         elif [[ $remainMS -le $(( warnTime * 1000 )) ]]; then
             printf "\a %b" "${RED}"
             if ! $played2; then
-                [[ "$WARN_SOUND" != "" ]] && ogg123 -q "$WARN_SOUND" &
+                [[ "$WARN_SOUND" != "" ]] && ! $first && ogg123 -q "$WARN_SOUND" &
                 played2=true
             fi
         elif [[ $remainMS -le 60000 ]]; then
@@ -127,6 +128,7 @@ time_int() {
         $addLine && printf "\n\n"
         trap - SIGTERM
         $once && break
+        first=false
         sleep 0.01
     done
 }
@@ -338,11 +340,11 @@ while $running; do
         if $restartOnSuspend; then
             startTime=$timeNow
             suspendTime=0
-            time_int true
         else
             timeNow=$(date +%s%3N)
             suspendTime=$(( timeNow - startTime ))
         fi
+        time_int true
         printf "\r\b"
         printf "%bPAUSED%b Press%s to restart, s to continue & e to exit" "${GREEN}" "${NC}" "${RESTART_ARR[*]}"
     elif [[ $key == 'e' ]]; then
