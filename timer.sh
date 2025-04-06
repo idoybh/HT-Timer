@@ -87,7 +87,7 @@ time_int() {
             fi
             remainMS=$(( -1 * remainMS ))
             signStr="-"
-        elif [[ $remainMS -le $(( warnTime * 1000)) ]]; then
+        elif [[ $remainMS -le $(( warnTime * 1000 )) ]]; then
             printf "\a %b" "${RED}"
             if ! $played2; then
                 [[ "$WARN_SOUND" != "" ]] && ogg123 -q "$WARN_SOUND" &
@@ -113,9 +113,8 @@ time_int() {
             printf "\n"
             blinkC=0
         fi
-        figlet -w 400 -m 0 -- "$(printf -- "%s%02d:%02d" "${signStr}" $remainM $remainS)"
+        figlet -t -k -- "$(printf -- "%s%02d:%02d" "${signStr}" $remainM $remainS)"
         # printf "ms: %s%03d\n" "${signStr}" $(( remainMS % 1000 ))
-        echo -e "${NC}"
         addLine=false
         if [[ $rKey1 != "" ]] && [[ $rKey2 != "" ]]; then
             printf "restart: '%b%s+%s%b'" "${BLUE}" "${rKey1}" "${rKey2}" "${NC}"
