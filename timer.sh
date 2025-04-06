@@ -73,7 +73,7 @@ time_int() {
     local played1=$once
     local played2=$once
     local first=true
-    local blinkC=0
+    local blink=false
     while true; do
         ! $once && timeNow=$(date +%s%3N)
         passedMS=$(( timeNow - startTime ))
@@ -81,7 +81,7 @@ time_int() {
         signStr=""
         if [[ $passedMS -ge $time ]]; then
             printf "\a %b" "${RED}"
-            (( blinkC++ ))
+            blink=true
             if ! $played1; then
                 [[ "$PASS_SOUND" != "" ]] && ! $first && ogg123 -q "$PASS_SOUND" &
                 played1=true
@@ -106,14 +106,14 @@ time_int() {
         trap "" SIGTERM
         clear
         printf "%s " "${title}"
-        if [[ $blinkC -lt 50 ]]; then
+        if $once || ! $blink || [[ $(( remainMS % 1000 )) -lt 500 ]]; then
             printf "(%02d:%02d / %02d:%02d)\n" $passedM $passedS $totalM $totalS
-        elif [[ $blinkC -lt 75 ]]; then
+        elif $blink; then
             printf "\n"
         else
             printf "\n"
-            blinkC=0
         fi
+        [[ $remainM == 0 ]] && [[ $remainS == 0 ]] && signStr=""
         figlet -t -k -- "$(printf -- "%s%02d:%02d" "${signStr}" $remainM $remainS)"
         # printf "ms: %s%03d\n" "${signStr}" $(( remainMS % 1000 ))
         addLine=false
@@ -131,6 +131,15 @@ time_int() {
         first=false
         sleep 0.01
     done
+}
+
+time_kill() {
+    [[ $ti_pid == "" ]] && return 0
+    while ps -p "$ti_pid" > /dev/null; do
+        kill -TERM "$ti_pid"
+        sleep 0.1
+    done
+    ti_pid=""
 }
 
 # Sets the needed vars for this timer
@@ -309,13 +318,7 @@ while $running; do
     printf "\b \b"
     [[ $lastKey != 's' ]] && printf "\r"
     if [[ " ${RESTART_ARR[*]} " =~ " ${key} " ]]; then
-        if [[ $ti_pid != "" ]]; then
-            while ps -p "$ti_pid" > /dev/null; do
-                kill -TERM "$ti_pid"
-                sleep 0.1
-            done
-        fi
-        ti_pid=""
+        time_kill
         startTime=$(date +%s%3N)
         time_int &
         ti_pid=$!
@@ -329,13 +332,7 @@ while $running; do
             lastKey=''
             continue
         fi
-        if [[ $ti_pid != "" ]]; then
-            while ps -p "$ti_pid" > /dev/null; do
-                kill -TERM "$ti_pid"
-                sleep 0.1
-            done
-        fi
-        ti_pid=""
+        time_kill
         timeNow=$(date +%s%3N)
         if $restartOnSuspend; then
             startTime=$timeNow
@@ -349,13 +346,7 @@ while $running; do
         printf "%bPAUSED%b Press%s to restart, s to continue & e to exit" "${GREEN}" "${NC}" "${RESTART_ARR[*]}"
     elif [[ $key == 'e' ]]; then
         if [[ $lastKey == 'e' ]] || [[ $lastKey == 's' ]]; then
-            if [[ $ti_pid != "" ]]; then
-                while ps -p "$ti_pid" > /dev/null; do
-                    kill -TERM "$ti_pid"
-                    sleep 0.1
-                done
-            fi
-            ti_pid=""
+            time_kill
             running=false
         fi
     fi
