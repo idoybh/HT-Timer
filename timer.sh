@@ -9,6 +9,7 @@ sKey1=""
 sKey2=""
 startSuspended=false
 restartOnSuspend=false
+showMS="$(grep "show_ms" "general.conf" | cut -d "=" -f 2 | xargs)" # 0 = disabled, 1 = only in passed, 2 = in passed and remaining
 warnTime="$(grep "warn_time" "general.conf" | cut -d "=" -f 2 | xargs)"
 WARN_SOUND="$(grep "warn_sound" "general.conf" | cut -d "=" -f 2 | xargs)"
 PASS_SOUND="$(grep "pass_sound" "general.conf" | cut -d "=" -f 2 | xargs)"
@@ -32,7 +33,8 @@ print_help() {
     printf "%b-c <config>%b where %b<config>%b is a path to a .conf file\n" "${GREEN}" "${NC}" "${GREEN}" "${NC}"
     printf "%b-i%b for interactive selection of a config file in folder\n" "${GREEN}" "${NC}"
     printf "%b-s%b to start the timer paused\n" "${GREEN}" "${NC}"
-    printf "%b--s-r%b to restart the timer when paused\n" "${GREEN}" "${NC}"
+    printf "%b--sr%b to restart the timer when paused\n" "${GREEN}" "${NC}"
+    printf "%b--ms%b %b[value]%b to show milis (see below)\n" "${GREEN}" "${NC}" "${YELLOW}" "${NC}"
     printf "\n%b<time> format%b is either n/o seconds or %bXhXmX%b\n" "${GREEN}" "${NC}" "${YELLOW}" "${NC}"
     printf "where X is a number, h suffixes hours, m suffixes minutes and whatever comes next are added seconds\n"
     printf "Examples:\n"
@@ -58,12 +60,17 @@ print_help() {
     printf "Add %bwarn_time=%b[time in seconds]%b this overrides general.conf's time (see below)\n" "${GREEN}" "${YELLOW}" "${NC}"
     printf "Add %bwarn_sound=%b[path to an ogg file]%b this overrides general.conf's sound (see below)\n" "${GREEN}" "${YELLOW}" "${NC}"
     printf "Add %bpass_sound=%b[path to an ogg file]%b this overrides general.conf's sound (see below)\n" "${GREEN}" "${YELLOW}" "${NC}"
+    printf "Add %bshow_ms=%b[value]%b this overrides general.conf's setting (see below)\n" "${GREEN}" "${YELLOW}" "${NC}"
     printf "\n%bgeneral.conf:%b\n" "${GREEN}" "${NC}"
     printf "If a file named \`general.conf\` is found withing the directory:\n"
     printf "Add %bwarn_time=%b[time in seconds]%b to set the remaining time where a warning should be displayed / played\n" "${GREEN}" "${YELLOW}" "${NC}"
     printf "Add %bwarn_sound=%b[path to an ogg file]%b to play that file when %bwarn_time%b has passed\n" "${GREEN}" "${YELLOW}" "${NC}" "${GREEN}" "${NC}"
     printf "Add %bpass_sound=%b[path to an ogg file]%b to play that file when the timer expires\n" "${GREEN}" "${YELLOW}" "${NC}"
     printf "Add %binput_device=%b[path to keyboard's /dev/input/eventX file]%b to use keycombos\n" "${GREEN}" "${YELLOW}" "${NC}"
+    printf "Add %bshow_ms=%b[value]%b to show millis at the timer. Possible values are:\n" "${GREEN}" "${YELLOW}" "${NC}"
+    printf "%b0%b: disabled (default)" "${YELLOW}" "${NC}"
+    printf "%b1%b: show only in passed time" "${YELLOW}" "${NC}"
+    printf "%b0%b: show in passed and remaining time" "${YELLOW}" "${NC}"
 }
 
 # Background thread
@@ -105,7 +112,7 @@ time_int() {
         remainM=$(( remainMS / 60000 ))
         remainS=$(( (remainMS % 60000) / 1000 ))
         roundedMS=$(( remainMS % 1000 ))
-        if [[ $passedMS -lt $time ]] && [[ $roundedMS -gt 0 ]]; then
+        if [[ $passedMS -lt $time ]] && [[ $roundedMS -gt 0 ]] && [[ $showMS -lt 2 ]]; then
             if [[ $remainS -lt 59 ]]; then
                 (( remainS++ ))
             else
@@ -117,15 +124,22 @@ time_int() {
         clear
         printf "%s " "${title}"
         if $once || ! $blink || [[ $roundedMS -lt 500 ]]; then
-            printf "(%02d:%02d / %02d:%02d)\n" $passedM $passedS $totalM $totalS
+            if [[ $showMS -ge 1 ]]; then
+                printf "(%02d:%02d:%03d / %02d:%02d:000)\n" $passedM $passedS $(( passedMS % 1000 )) $totalM $totalS
+            else
+                printf "(%02d:%02d / %02d:%02d)\n" $passedM $passedS $totalM $totalS
+            fi
         elif $blink; then
             printf "\n"
         else
             printf "\n"
         fi
-        [[ $remainM == 0 ]] && [[ $remainS == 0 ]] && signStr=""
-        figlet -t -k -- "$(printf -- "%s%02d:%02d" "${signStr}" $remainM $remainS)"
-        # printf "ms: %s%03d\n" "${signStr}" $roundedMS
+        [[ $remainM == 0 ]] && [[ $remainS == 0 ]] && [[ $showMS -ge 2 ]] && signStr=""
+        if [[ $showMS -ge 2 ]]; then
+            figlet -t -k -- "$(printf -- "%s%02d:%02d:%03d" "${signStr}" $remainM $remainS $roundedMS)"
+        else
+            figlet -t -k -- "$(printf -- "%s%02d:%02d" "${signStr}" $remainM $remainS)"
+        fi
         addLine=false
         if [[ $rKey1 != "" ]] && [[ $rKey2 != "" ]]; then
             printf "restart: '%b%s+%s%b'" "${BLUE}" "${rKey1}" "${rKey2}" "${NC}"
@@ -210,6 +224,9 @@ init_config() {
     if grep -q "pass_sound" "$file"; then
         PASS_SOUND="$(grep "pass_sound" "$file" | cut -d "=" -f 2 | xargs)"
     fi
+    if grep -q "show_ms" "$file"; then
+        showMS="$(grep "show_ms" "$file" | cut -d "=" -f 2 | xargs)"
+    fi
 }
 
 # Args
@@ -248,8 +265,13 @@ case "${1}" in
         startSuspended=true
         shift
         ;;
-    --s-r) # restart on suspend )
+    --sr) # restart on suspend )
         restartOnSuspend=true
+        shift
+        ;;
+    --ms) # show ms )
+        showMS=$2
+        shift
         shift
         ;;
     -h|\?|--help) # help )
