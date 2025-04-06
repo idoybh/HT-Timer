@@ -66,8 +66,7 @@ print_help() {
 
 # Background thread
 time_int() {
-    once=$1
-    [[ $once == "" ]] && once=false
+    once=${1:-false}
     totalM=$(( time / 60000 ))
     totalS=$(( (time % 60000) / 1000 ))
     local played1=$once
@@ -103,10 +102,19 @@ time_int() {
         passedS=$(( (passedMS % 60000) / 1000 ))
         remainM=$(( remainMS / 60000 ))
         remainS=$(( (remainMS % 60000) / 1000 ))
+        roundedMS=$(( remainMS % 1000 ))
+        if [[ $passedMS -lt $time ]] && [[ $roundedMS -gt 0 ]]; then
+            if [[ $remainS -lt 59 ]]; then
+                (( remainS++ ))
+            else
+                remainS=0
+                (( remainM++ ))
+            fi
+        fi
         trap "" SIGTERM
         clear
         printf "%s " "${title}"
-        if $once || ! $blink || [[ $(( remainMS % 1000 )) -lt 500 ]]; then
+        if $once || ! $blink || [[ $roundedMS -lt 500 ]]; then
             printf "(%02d:%02d / %02d:%02d)\n" $passedM $passedS $totalM $totalS
         elif $blink; then
             printf "\n"
@@ -115,7 +123,7 @@ time_int() {
         fi
         [[ $remainM == 0 ]] && [[ $remainS == 0 ]] && signStr=""
         figlet -t -k -- "$(printf -- "%s%02d:%02d" "${signStr}" $remainM $remainS)"
-        # printf "ms: %s%03d\n" "${signStr}" $(( remainMS % 1000 ))
+        # printf "ms: %s%03d\n" "${signStr}" $roundedMS
         addLine=false
         if [[ $rKey1 != "" ]] && [[ $rKey2 != "" ]]; then
             printf "restart: '%b%s+%s%b'" "${BLUE}" "${rKey1}" "${rKey2}" "${NC}"
