@@ -56,6 +56,8 @@ print_help() {
     printf "Add %breset_keys=%b[keys list]%b to set the timer's reset key-combo\n" "${GREEN}" "${YELLOW}" "${NC}"
     printf "Add %bsuspend_keys=%b[keys list]%b to set the timer's suspend key-combo\n" "${GREEN}" "${YELLOW}" "${NC}"
     printf "Add %bwarn_time=%b[time in seconds]%b this overrides general.conf's time (see below)\n" "${GREEN}" "${YELLOW}" "${NC}"
+    printf "Add %bwarn_sound=%b[path to an ogg file]%b this overrides general.conf's sound (see below)\n" "${GREEN}" "${YELLOW}" "${NC}"
+    printf "Add %bpass_sound=%b[path to an ogg file]%b this overrides general.conf's sound (see below)\n" "${GREEN}" "${YELLOW}" "${NC}"
     printf "\n%bgeneral.conf:%b\n" "${GREEN}" "${NC}"
     printf "If a file named \`general.conf\` is found withing the directory:\n"
     printf "Add %bwarn_time=%b[time in seconds]%b to set the remaining time where a warning should be displayed / played\n" "${GREEN}" "${YELLOW}" "${NC}"
@@ -201,6 +203,12 @@ init_config() {
     sKey2=$(echo "$suspendKeys" | cut -d "," -f 2)
     if grep -q "warn_time" "$file"; then
         warnTime="$(grep "warn_time" "$file" | cut -d "=" -f 2 | xargs)"
+    fi
+    if grep -q "warn_sound" "$file"; then
+        WARN_SOUND="$(grep "warn_sound" "$file" | cut -d "=" -f 2 | xargs)"
+    fi
+    if grep -q "pass_sound" "$file"; then
+        PASS_SOUND="$(grep "pass_sound" "$file" | cut -d "=" -f 2 | xargs)"
     fi
 }
 
